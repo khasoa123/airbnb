@@ -1,0 +1,380 @@
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Image } from '@/components/ui/image';
+import { ArrowRight, Search, MapPin, Users, Star } from 'lucide-react';
+import { BaseCrudService } from '@/integrations';
+import { useMember } from '@/integrations';
+
+interface Property {
+  _id: string;
+  title: string;
+  location: string;
+  propertyType: string;
+  description: string;
+  mainImage: string;
+  pricePerNight: number;
+  maxGuests: number;
+  amenities: string;
+  hostName: string;
+}
+
+const useIntersectionObserver = (options: IntersectionObserverInit) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsVisible(true);
+        if (containerRef.current) {
+            observer.unobserve(containerRef.current);
+        }
+      }
+    }, options);
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+    };
+  }, [containerRef, options]);
+
+  return [containerRef, isVisible] as const;
+};
+
+const AnimatedSection = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const [ref, isVisible] = useIntersectionObserver({ threshold: 0.1 });
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-1000 ease-in-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}
+    >
+      {children}
+    </div>
+  );
+};
+
+export default function HomePage() {
+  const { member, isAuthenticated, actions } = useMember();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [email, setEmail] = useState('');
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  useEffect(() => {
+    const loadProperties = async () => {
+      try {
+        const { items } = await BaseCrudService.getAll<Property>('propertylistings');
+        setProperties(items);
+      } catch (error) {
+        console.error('Failed to load properties:', error);
+      }
+    };
+    loadProperties();
+  }, []);
+
+  const featuredProperties = properties.slice(0, 3);
+  const propertyTypes = [...new Set(properties.map(prop => prop.propertyType))].slice(0, 3);
+
+  const handleNewsletterSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      try {
+        await BaseCrudService.create('newsletter-subscribers', {
+          _id: crypto.randomUUID(),
+          email,
+          subscribedAt: new Date(),
+          active: true
+        });
+        setIsSubscribed(true);
+        setEmail('');
+      } catch (error) {
+        console.error('Failed to subscribe:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="bg-background text-primary font-paragraph overflow-clip">
+      <style>{`
+        .hairline-border {
+          border-color: hsl(var(--primary) / 0.2);
+        }
+        .hero-headline {
+          font-size: clamp(3.75rem, 10vw, 8rem);
+        }
+        .link-underline {
+          position: relative;
+          display: inline-block;
+        }
+        .link-underline::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          width: 100%;
+          height: 1px;
+          background-color: currentColor;
+          transform: scaleX(1);
+          transition: transform 0.3s ease-out;
+        }
+        .link-underline:hover::after {
+          transform: scaleX(0);
+          transform-origin: right;
+        }
+      `}</style>
+
+      {/* Hero Section */}
+      <section className="w-full max-w-[120rem] mx-auto min-h-screen grid grid-cols-12 grid-rows-[auto_1fr_auto] p-4 sm:p-6 md:p-8">
+        <div className="col-span-4 row-start-1 border-b hairline-border flex items-center py-4">
+          <span className="font-heading text-lg">StayScape</span>
+        </div>
+        <div className="col-span-4 row-start-1 border-b border-x hairline-border"></div>
+        <div className="col-span-4 row-start-1 border-b hairline-border flex items-center justify-end py-4">
+          <Button asChild variant="link" className="text-primary p-0 h-auto">
+            <Link to="/properties" className="link-underline">Explore All</Link>
+          </Button>
+        </div>
+
+        <div className="col-span-12 row-start-2 grid grid-cols-12 grid-rows-1 relative">
+          <div className="col-span-12 lg:col-span-8 lg:col-start-3 row-start-1 flex items-center justify-center py-12 z-0">
+            <div className="w-full max-w-2xl aspect-[3/4] relative">
+              <Image
+                src="https://static.wixstatic.com/media/9baa27_90ddf7383b854019b98b5c7d030ae865~mv2.png?originWidth=896&originHeight=1152"
+                alt="Traveler exploring a scenic mountain landscape with backpack"
+                width={900}
+                height={1200}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+          <h1 className="hero-headline font-heading text-primary absolute inset-0 flex items-center justify-center pointer-events-none z-10 mix-blend-difference text-primary-foreground leading-none tracking-tighter">
+            STAY
+          </h1>
+          <div className="absolute top-0 right-0 h-full col-span-12 lg:col-span-4 lg:col-start-9 p-8 hidden lg:flex items-start justify-end">
+            <p className="text-base text-right max-w-xs">
+              Discover unique places to stay around the world. From cozy apartments to luxury villas, find your perfect home away from home.
+            </p>
+          </div>
+          <div className="absolute bottom-0 left-0 col-span-4 p-8 hidden lg:flex items-end">
+            <p className="text-base max-w-xs">
+              Book unique accommodations with local hosts worldwide.
+            </p>
+          </div>
+        </div>
+
+        <div className="col-span-12 row-start-3 border-t hairline-border flex items-center justify-end py-4">
+          <Button asChild variant="link" className="text-primary p-0 h-auto">
+            <Link to="/properties" className="link-underline">
+              Find Your Stay
+            </Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Our Philosophy Section */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+        <div className="border-x border-b hairline-border text-center py-24 md:py-32 px-8">
+          <h2 className="font-heading text-4xl md:text-5xl lg:text-6xl max-w-4xl mx-auto leading-tight">
+            We believe every stay should feel like home. Connect with local hosts and experience authentic hospitality wherever you go.
+          </h2>
+        </div>
+      </AnimatedSection>
+
+      {/* Featured Properties Section */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+        <div className="border-x border-b hairline-border">
+          <div className="border-b hairline-border p-6 md:p-8">
+            <h3 className="font-heading text-3xl">Featured Properties</h3>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3">
+            {featuredProperties.map((property, index) => (
+              <div key={property._id} className={`p-6 md:p-8 ${index < 2 ? 'lg:border-r hairline-border' : ''}`}>
+                <div className="space-y-6">
+                  <div className="aspect-square w-full overflow-clip">
+                    <Image
+                      src={property.mainImage || 'https://static.wixstatic.com/media/9baa27_90ddf7383b854019b98b5c7d030ae865~mv2.png?originWidth=896&originHeight=1152'}
+                      alt={property.title}
+                      width={600}
+                      height={600}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-in-out hover:scale-105"
+                    />
+                  </div>
+                  <div className="flex justify-between items-start gap-4">
+                    <div>
+                      <Badge variant="outline" className="border-primary/40 text-primary mb-2">{property.propertyType}</Badge>
+                      <h4 className="font-heading text-2xl">{property.title}</h4>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-primary/70">
+                        <MapPin className="h-4 w-4" />
+                        <span>{property.location}</span>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-primary/70">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          <span>{property.maxGuests} guests</span>
+                        </div>
+                        <div className="font-semibold text-primary">
+                          ${property.pricePerNight}/night
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-sm pt-1 flex-shrink-0">0{index + 1}</span>
+                  </div>
+                  <p className="text-base text-primary/80 leading-relaxed line-clamp-3">{property.description}</p>
+                  <Button asChild variant="link" className="text-primary p-0 h-auto">
+                    <Link to={`/property/${property._id}`} className="link-underline">
+                      View Property
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* Visual Interlude */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8 h-[100vh]">
+        <div className="border-x border-b hairline-border h-full w-full relative">
+          <Image
+            src="https://static.wixstatic.com/media/9baa27_dce6bd18ff0a4795a5db1165a7fbcff7~mv2.png?originWidth=1920&originHeight=1024"
+            alt="A serene, vast landscape evoking a sense of calm and wonder."
+            width={1920}
+            height={1080}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-primary/20"></div>
+        </div>
+      </AnimatedSection>
+
+      {/* Explore by Property Type Section */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+        <div className="border-x border-b hairline-border">
+          <div className="border-b hairline-border p-6 md:p-8">
+            <h3 className="font-heading text-3xl">Explore by Property Type</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3">
+            {propertyTypes.map((type, index) => (
+              <Link to="/properties" key={type} className={`group block relative aspect-square ${index < 2 ? 'md:border-r hairline-border' : ''}`}>
+                <Image
+                  src={'https://static.wixstatic.com/media/9baa27_9a324682573a4dde8ba8a960412aad92~mv2.png?originWidth=576&originHeight=576'}
+                  alt={`${type} property type`}
+                  width={600}
+                  height={600}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-background/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <h4 className="font-heading text-4xl text-primary">{type}</h4>
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center group-hover:opacity-0 transition-opacity duration-300">
+                  <h4 className="font-heading text-4xl text-primary-foreground mix-blend-difference">{type}</h4>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* Newsletter Subscription */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+        <div className="border-x border-b hairline-border bg-secondary">
+          <div className="grid grid-cols-1 lg:grid-cols-2 min-h-[50vh]">
+            <div className="p-8 md:p-12 lg:p-16 flex flex-col justify-center">
+              <h3 className="font-heading text-4xl text-secondary-foreground mb-4">Stay Inspired</h3>
+              <p className="text-lg text-secondary-foreground/80 max-w-md">
+                Get notified about new properties, special offers, and travel tips from our community of hosts.
+              </p>
+            </div>
+            <div className="p-8 md:p-12 lg:p-16 flex items-center justify-center lg:border-l hairline-border">
+              {isSubscribed ? (
+                <div className="text-center">
+                  <h4 className="font-heading text-2xl text-secondary-foreground">Thank You</h4>
+                  <p className="text-secondary-foreground/80">You'll receive updates about new properties and offers.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleNewsletterSubscribe} className="w-full max-w-sm space-y-4">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full bg-transparent border-secondary-foreground/30 text-secondary-foreground placeholder:text-secondary-foreground/50 h-12 text-base"
+                  />
+                  <Button type="submit" className="w-full h-12 bg-secondary-foreground text-secondary hover:bg-secondary-foreground/90">
+                    Subscribe
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* All Properties Preview */}
+      <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+        <div className="border-x border-b hairline-border">
+          <div className="border-b hairline-border p-6 md:p-8 flex justify-between items-center">
+            <h3 className="font-heading text-3xl">Discover More</h3>
+            <Button asChild variant="link" className="text-primary p-0 h-auto">
+              <Link to="/properties" className="link-underline">View All Properties</Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {properties.slice(0, 8).map((property, index) => (
+              <Link to={`/property/${property._id}`} key={property._id} className={`group block p-6 md:p-8 space-y-4 border-b sm:border-b-0 hairline-border 
+                ${(index + 1) % 4 !== 0 ? 'lg:border-r' : ''} 
+                ${index < 4 ? 'lg:border-b' : ''}
+                ${(index + 1) % 2 !== 0 ? 'sm:border-r' : ''}
+              `}>
+                <div className="aspect-video w-full overflow-clip">
+                  <Image
+                    src={property.mainImage || 'https://static.wixstatic.com/media/9baa27_90ddf7383b854019b98b5c7d030ae865~mv2.png?originWidth=896&originHeight=1152'}
+                    alt={property.title}
+                    width={400}
+                    height={225}
+                    className="w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
+                  />
+                </div>
+                <div>
+                  <h4 className="font-heading text-xl">{property.title}</h4>
+                  <p className="text-sm text-primary/70">{property.location}</p>
+                  <p className="text-sm font-semibold text-primary">${property.pricePerNight}/night</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </AnimatedSection>
+
+      {/* User Welcome Section */}
+      {isAuthenticated && (
+        <AnimatedSection className="w-full max-w-[120rem] mx-auto p-4 sm:p-6 md:p-8">
+          <div className="border-x border-b hairline-border text-center py-20 px-8">
+            <h2 className="font-heading text-3xl text-primary mb-2">
+              Welcome back, {member?.profile?.nickname || member?.contact?.firstName || 'Explorer'}.
+            </h2>
+            <p className="text-lg text-primary/80 mb-6">
+              Your next adventure awaits.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link to="/favorites">My Saved Properties</Link>
+              </Button>
+              <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+                <Link to="/profile">View Profile</Link>
+              </Button>
+            </div>
+          </div>
+        </AnimatedSection>
+      )}
+    </div>
+  );
+}
